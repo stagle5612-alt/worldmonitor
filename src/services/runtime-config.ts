@@ -4,6 +4,8 @@ import { invokeTauri } from './tauri-bridge';
 export type RuntimeSecretKey =
   | 'GROQ_API_KEY'
   | 'OPENROUTER_API_KEY'
+  | 'XAI_API_KEY'
+  | 'DEEPSEEK_API_KEY'
   | 'TAVILY_API_KEYS'
   | 'BRAVE_API_KEYS'
   | 'SERPAPI_API_KEYS'
@@ -33,6 +35,8 @@ export type RuntimeSecretKey =
 export type RuntimeFeatureId =
   | 'aiGroq'
   | 'aiOpenRouter'
+  | 'aiXai'
+  | 'aiDeepseek'
   | 'stockNewsSearchTavily'
   | 'stockNewsSearchBrave'
   | 'stockNewsSearchSerpApi'
@@ -90,6 +94,8 @@ function getSidecarSecretValidateUrl(): string {
 const defaultToggles: Record<RuntimeFeatureId, boolean> = {
   aiGroq: true,
   aiOpenRouter: true,
+  aiXai: true,
+  aiDeepseek: true,
   stockNewsSearchTavily: true,
   stockNewsSearchBrave: true,
   stockNewsSearchSerpApi: true,
@@ -135,6 +141,20 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     name: 'OpenRouter summarization',
     description: 'Secondary LLM provider for AI summary fallback.',
     requiredSecrets: ['OPENROUTER_API_KEY'],
+    fallback: 'Falls back to xAI, then DeepSeek, then local browser model.',
+  },
+  {
+    id: 'aiXai',
+    name: 'xAI (Grok) summarization',
+    description: 'Additional LLM provider for AI summary fallback.',
+    requiredSecrets: ['XAI_API_KEY'],
+    fallback: 'Falls back to DeepSeek, then local browser model.',
+  },
+  {
+    id: 'aiDeepseek',
+    name: 'DeepSeek summarization',
+    description: 'Additional LLM provider for AI summary fallback.',
+    requiredSecrets: ['DEEPSEEK_API_KEY'],
     fallback: 'Falls back to local browser model only.',
   },
   {
