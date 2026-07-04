@@ -3,6 +3,8 @@ import type { RuntimeSecretKey, RuntimeFeatureId } from './runtime-config';
 export const SIGNUP_URLS: Partial<Record<RuntimeSecretKey, string>> = {
   GROQ_API_KEY: 'https://console.groq.com/keys',
   OPENROUTER_API_KEY: 'https://openrouter.ai/settings/keys',
+  XAI_API_KEY: 'https://console.x.ai/',
+  DEEPSEEK_API_KEY: 'https://platform.deepseek.com/api_keys',
   TAVILY_API_KEYS: 'https://app.tavily.com/home',
   BRAVE_API_KEYS: 'https://api-dashboard.search.brave.com/app/keys',
   SERPAPI_API_KEYS: 'https://serpapi.com/manage-api-key',
@@ -39,6 +41,8 @@ export const MASKED_SENTINEL = '__WM_MASKED__';
 export const HUMAN_LABELS: Record<RuntimeSecretKey, string> = {
   GROQ_API_KEY: 'Groq API Key',
   OPENROUTER_API_KEY: 'OpenRouter API Key',
+  XAI_API_KEY: 'xAI (Grok) API Key',
+  DEEPSEEK_API_KEY: 'DeepSeek API Key',
   TAVILY_API_KEYS: 'Tavily API Keys',
   BRAVE_API_KEYS: 'Brave Search API Keys',
   SERPAPI_API_KEYS: 'SerpAPI Keys',

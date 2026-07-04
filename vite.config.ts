@@ -2,6 +2,8 @@ import { defineConfig, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { resolve, dirname, extname } from 'path';
 import { mkdir, readFile, writeFile } from 'fs/promises';
+import { existsSync } from 'fs';
+import { pathToFileURL } from 'url';
 import { brotliCompress } from 'zlib';
 import { promisify } from 'util';
 import pkg from './package.json';
@@ -197,6 +199,8 @@ function sebufApiPlugin(): Plugin {
       tradeServerMod, tradeHandlerMod,
       supplyChainServerMod, supplyChainHandlerMod,
       naturalServerMod, naturalHandlerMod,
+      forecastServerMod, forecastHandlerMod,
+      webcamServerMod, webcamHandlerMod,
     ] = await Promise.all([
         import('./server/router'),
         import('./server/cors'),
@@ -245,6 +249,10 @@ function sebufApiPlugin(): Plugin {
         import('./server/worldmonitor/supply-chain/v1/handler'),
         import('./src/generated/server/worldmonitor/natural/v1/service_server'),
         import('./server/worldmonitor/natural/v1/handler'),
+        import('./src/generated/server/worldmonitor/forecast/v1/service_server'),
+        import('./server/worldmonitor/forecast/v1/handler'),
+        import('./src/generated/server/worldmonitor/webcam/v1/service_server'),
+        import('./server/worldmonitor/webcam/v1/handler'),
       ]);
 
     const serverOptions = { onError: errorMod.mapErrorToResponse };
@@ -271,6 +279,8 @@ function sebufApiPlugin(): Plugin {
       ...tradeServerMod.createTradeServiceRoutes(tradeHandlerMod.tradeHandler, serverOptions),
       ...supplyChainServerMod.createSupplyChainServiceRoutes(supplyChainHandlerMod.supplyChainHandler, serverOptions),
       ...naturalServerMod.createNaturalServiceRoutes(naturalHandlerMod.naturalHandler, serverOptions),
+      ...forecastServerMod.createForecastServiceRoutes(forecastHandlerMod.forecastHandler, serverOptions),
+      ...webcamServerMod.createWebcamServiceRoutes(webcamHandlerMod.webcamHandler, serverOptions),
     ];
     cachedCorsMod = corsMod;
     return routerMod.createRouter(allRoutes);
@@ -575,6 +585,72 @@ function youtubeLivePlugin(): Plugin {
   };
 }
 
+/**
+ * Dev-mode runner for legacy single-file edge functions under api/*.js.
+ *
+ * These use the Web-standard `export default async function handler(req: Request): Response`
+ * signature (Vercel Edge runtime). In production Vercel executes them directly; in `vite dev`
+ * they would otherwise be served as raw source text. This middleware matches `/api/<name>`
+ * (no `/v1/` sub-path — those are sebuf routes), dynamically imports the matching file,
+ * invokes the handler with a Web Request, and pipes the Web Response back to Node.
+ */
+function legacyEdgeApiPlugin(): Plugin {
+  return {
+    name: 'legacy-edge-api',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        // Match exactly /api/<name> with an optional query string — not /api/<domain>/v1/*
+        const match = req.url?.match(/^\/api\/([a-z0-9-]+)(?:\?.*)?$/);
+        if (!match) return next();
+
+        const name = match[1];
+        const filePath = resolve(__dirname, 'api', `${name}.js`);
+        if (!existsSync(filePath)) return next();
+
+        try {
+          const mod = await import(pathToFileURL(filePath).href);
+          const handler = mod.default;
+          if (typeof handler !== 'function') return next();
+
+          const port = server.config.server.port || 3000;
+          const url = new URL(req.url!, `http://localhost:${port}`);
+
+          let body: string | undefined;
+          if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
+            const chunks: Buffer[] = [];
+            for await (const chunk of req) {
+              chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+            }
+            body = Buffer.concat(chunks).toString();
+          }
+
+          const headers: Record<string, string> = {};
+          for (const [key, value] of Object.entries(req.headers)) {
+            if (typeof value === 'string') headers[key] = value;
+            else if (Array.isArray(value)) headers[key] = value.join(', ');
+          }
+
+          const webRequest = new Request(url.toString(), {
+            method: req.method,
+            headers,
+            body: body || undefined,
+          });
+
+          const response: Response = await handler(webRequest);
+          res.statusCode = response.status;
+          response.headers.forEach((value, key) => res.setHeader(key, value));
+          res.end(Buffer.from(await response.arrayBuffer()));
+        } catch (err) {
+          console.error(`[legacy-edge-api] ${name}:`, err);
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'Internal server error' }));
+        }
+      });
+    },
+  };
+}
+
 function gpsjamDevPlugin(): Plugin {
   return {
     name: 'gpsjam-dev',
@@ -610,6 +686,7 @@ export default defineConfig({
     rssProxyPlugin(),
     youtubeLivePlugin(),
     gpsjamDevPlugin(),
+    legacyEdgeApiPlugin(),
     sebufApiPlugin(),
     brotliPrecompressPlugin(),
     VitePWA({

@@ -74,6 +74,32 @@ export function getProviderCredentials(provider: string): ProviderCredentials | 
     };
   }
 
+  if (provider === 'xai') {
+    const apiKey = process.env.XAI_API_KEY;
+    if (!apiKey) return null;
+    return {
+      apiUrl: 'https://api.x.ai/v1/chat/completions',
+      model: 'grok-3-mini',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    };
+  }
+
+  if (provider === 'deepseek') {
+    const apiKey = process.env.DEEPSEEK_API_KEY;
+    if (!apiKey) return null;
+    return {
+      apiUrl: 'https://api.deepseek.com/v1/chat/completions',
+      model: 'deepseek-chat',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    };
+  }
+
   // Generic OpenAI-compatible endpoint via LLM_API_URL/LLM_API_KEY/LLM_MODEL
   if (provider === 'generic') {
     const apiUrl = process.env.LLM_API_URL;
@@ -112,7 +138,7 @@ export function stripThinkingTags(text: string): string {
   return s;
 }
 
-const PROVIDER_CHAIN = ['ollama', 'groq', 'openrouter', 'generic'] as const;
+const PROVIDER_CHAIN = ['ollama', 'groq', 'openrouter', 'xai', 'deepseek', 'generic'] as const;
 
 export interface LlmCallOptions {
   messages: Array<{ role: string; content: string }>;
