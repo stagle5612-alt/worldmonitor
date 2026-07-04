@@ -102,6 +102,12 @@ export function warmHealthCache(): void {
   if (typeof process !== 'undefined' && process.env?.OPENROUTER_API_KEY) {
     providerUrls.push('https://openrouter.ai/api/v1/chat/completions');
   }
+  if (typeof process !== 'undefined' && process.env?.XAI_API_KEY) {
+    providerUrls.push('https://api.x.ai/v1/chat/completions');
+  }
+  if (typeof process !== 'undefined' && process.env?.DEEPSEEK_API_KEY) {
+    providerUrls.push('https://api.deepseek.com/v1/chat/completions');
+  }
 
   for (const url of providerUrls) {
     void isProviderAvailable(url);
